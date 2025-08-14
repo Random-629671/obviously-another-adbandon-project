@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>lelele</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <nav class="sidebar">
+            <div class="tabs">
+                <button class="tab-button active" data-tab="chat">Chat</button>
+                <button class="tab-button" data-tab="history">History</button>
+                <button class="tab-button" data-tab="config">Config</button>
+                <button class="tab-button" data-tab="log">Log</button>
+            </div>
+            <div class="info-panel">
+                <!-- Random information can go here later -->
+            </div>
+        </nav>
+        <main class="main-content">
+            <!-- Chat Tab -->
+            <div id="chat" class="tab-content active">
+                <div class="chat-window"></div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Type your message here...">
+                    <button id="send-button">➤</button>
+                </div>
+            </div>
+
+            <!-- History Tab -->
+            <div id="history" class="tab-content">
+                <h2>Conversation History</h2>
+                <div id="history-list"></div>
+            </div>
+
+            <!-- Config Tab -->
+            <div id="config" class="tab-content">
+                <!-- NEW: Container for config controls -->
+                <div id="config-controls">
+                    <select id="config-file-dropdown"></select>
+                    <button id="config-save-button">Save Changes</button>
+                </div>
+                <div id="config-view"></div>
+            </div>
+
+            <!-- Log Tab -->
+            <div id="log" class="tab-content">
+                <h2>Application Log</h2>
+                <pre id="log-output"></pre>
+            </div>
+        </main>
+    </div>
+    <script type="module" src="../renderer/index.js"></script>
+</body>
+</html>
