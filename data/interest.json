@@ -5,6 +5,17 @@
     "recent_reaction": ""
   },
   "overallImprovementRoom": [],
-  "overallLastUpdated": "",
-  "dailyInterests": []
+  "overallLastUpdated": "2025-08-20T07:33:22.133Z",
+  "dailyInterests": [
+    {
+      "date": "2025-08-20",
+      "interests": [],
+      "sentiment": {
+        "tone": "",
+        "reaction": ""
+      },
+      "improvementRoom": [],
+      "lastUpdated": ""
+    }
+  ]
 }

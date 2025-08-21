@@ -1,14 +1,15 @@
 import { UIElements, addChatMessage } from './uiMng.js';
 
 let thinkingBubble = null;
-const typeSpeed = 50;
+const typeSpeed = 30;
+const betweenMessage = 1600;
+
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 function handleSend() {
     const message = UIElements.chatInput.value.trim();
     if (message) {
         thinkingBubble = null;
-        messageBuffer = '';
-        isBreak = false;
 
         addChatMessage('user', message);
         window.electronAPI.sendMessage(message);
@@ -16,39 +17,39 @@ function handleSend() {
     }
 }
 
-function simulateTyping(response) {
-    let i = 0;
+function typeMessage(bubble, text) {
+    return new Promise(resolve => {
+        let i = 0;
+        bubble.textContent = '';
 
-    thinkingBubble.textContent = '';
-
-    function type() {
-        if (i >= response.length) {
-            thinkingBubble = null;
-            return;
+        function type() {
+            if (i < text.length) {
+                bubble.textContent += text.charAt(i);
+                i++;
+                UIElements.chatContainer.scrollTop = UIElements.chatContainer.scrollHeight;
+                setTimeout(type, typeSpeed);
+            } else {
+                resolve();
+            }
         }
 
-        if (response.substring(i).startsWith('{break}')) {
-            i += '{break}'.length;
-            thinkingBubble = null;
+        type();
+    });
+}
 
-            setTimeout(() => {
-                thinkingBubble = addChatMessage('bot', '...');
-                setTimeout(() => {
-                    thinkingBubble.textContent = '';
-                    type();
-                }, 500);
-            }, 1000);
-            return;
-        }
-
-        thinkingBubble.textContent += response[i];
-        i++;
-
-        UIElements.chatWindow.scrollTop = UIElements.chatWindow.scrollHeight;
-        setTimeout(type, typeSpeed);
+async function processSegment(segments) {
+    console.log("i ran");
+    const thinkingBubble = UIElements.chatWindow.querySelectorAll('.bot');
+    const last = thinkingBubble[thinkingBubble.length - 1];
+    if (last && last.textContent == "...") {
+        last.remove();
     }
 
-    type();
+    for (const seg of segments) {
+        const bubble = addChatMessage('bot', '');
+        await typeMessage(bubble, seg.message);
+        await delay(betweenMessage);
+    }
 }
 
 export function initChat() {
@@ -57,19 +58,17 @@ export function initChat() {
         if (e.key === 'Enter') handleSend();
     });
 
-    window.electronAPI.onBotResponse(({ type, message }) => {
-        if (message === '...') {
-            if (!thinkingBubble) thinkingBubble = addChatMessage('bot', '...');
+    window.electronAPI.onBotResponse(({ type, segments }) => {
+        if (type !== 'bot') return;
+
+        if (segments.length === 1 && segments[0].message === '...') {
+            const lastBubble = UIElements.chatWindow.querySelector('.bot:last-child');
+            if (!lastBubble || lastBubble.textContent !== '...') {
+                addChatMessage('bot', '...');
+            }
             return;
         }
 
-        if (type == "bot-response") {
-            if (thinkingBubble) {
-                simulateTyping(message);
-            } else {
-                thinkingBubble = addChatMessage('bot', '');
-                simulateTyping(message);
-            }
-        }
+        processSegment(segments);
     });
 }

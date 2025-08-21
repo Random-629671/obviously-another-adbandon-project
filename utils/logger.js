@@ -1,9 +1,6 @@
 const fs = require("fs");
 const path = require("path");
 const chalk = require("chalk");
-const { send } = require("process");
-const { log } = require("console");
-const { get } = require("http");
 
 const startDate = new Date();
 const formattedDate = `${startDate.getFullYear()}-${(startDate.getMonth() + 1).toString().padStart(2, "0")}-${startDate.getDate().toString().padStart(2, "0")}`;

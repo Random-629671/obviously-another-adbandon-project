@@ -1,5 +1,5 @@
 const { ipcMain } = require('electron');
-const chatbotService = require('../services/geminiService');
+const chatbotService = require('../services/handler.js');
 const fileManager = require('../utils/fileMng');
 const log = require('../utils/logger');
 
@@ -14,7 +14,8 @@ function registerIpcHandlers(mainWindow) {
         mainWindow.webContents.send('bot-response', { type: 'bot', message: '...' });
 
         const botResponse = await chatbotService.sendMessage(userMessage);
-        log.info(`Bot: ${botResponse}`);
+        const combinedLogMessage = botResponse.map(seg => seg.message).join(' | ');
+        log.info(`Bot: ${combinedLogMessage}`);
 
         mainWindow.webContents.send('bot-response', { type: 'bot', message: botResponse, thinking: false });
     });

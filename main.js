@@ -1,7 +1,7 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
-const chatbotService = require('./services/geminiService');
-const log = require('./utils/logger');
+const chatbotService = require('./services/handler.js');
+const log = require('./utils/logger.js');
 const { registerIpcHandlers } = require('./utils/ipc');
 
 let mainWindow;

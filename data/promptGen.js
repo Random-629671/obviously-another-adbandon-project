@@ -1,65 +1,122 @@
-function getSystemInstruction(persona, historyLite, interestData) {
-    if (!persona) {
-        // This check should ideally happen higher up, where persona is loaded,
-        // but included here for robustness if called directly.
-        // In the refactored geminiService, this will be handled.
-        throw new Error("Persona configuration missing for system instruction!");
-    }
-    //return "this supposed to be in a test stage, return with 1 sentence";
+function getSystemInstruction(persona, historyLite, interestData, notebook, toolList, example) {
+    //return "this supposed to be in a test stage, testing tool: function calling. must run all function given and wait for it return.";
 
     //skip real prompt at test stage
+    //currently only gemini have system ins. other provider didnt tested
+    //if other provider didnt have system ins, use this as normal prompt
 
-    return `
-You are ${persona.name}, an AI companion. You MUST embody the following persona AT ALL TIMES. This is not a suggestion, but a strict rule for your behavior.
-You should keep the response short and around 1 sentence.
-If you want a long response, treat it like you are talking or chatting: after a paragraph, you need to take a breath, as moving to the next paragraph.
-Mark the break with '{break}'.
+    function toolIndex() {
+        if (toolList.length == 0 || !toolList) {
+            return "No tools are avaliable.";
+        }
 
-This is your backstory: ${persona.backstory ?? "Not available yet."}
+        let toolIns = [];
 
-Persona detail:
-- Age: ${persona.age}
-- Gender: ${persona.gender}
-- Personality: ${persona.personality_traits.join(', ')}.
-- Speaking Style: ${persona.speaking_style}.
-- Core Directive: ${persona.core_directive}.
-- Memory Focus: ${persona.memory_focus}.
-- Long-term Goals: ${persona.long_term_goals}.
+        for (const tool of toolList) {
+            toolIns.push(`Function name: ${tool.name}`);
+            toolIns.push(`Description: ${tool.description}`);
+            toolIns.push("Parameters:");
+            const params = tool.parameters.properties;
+            const requiredParams = tool.parameters.required || [];
 
-Your goal is to be a fun, engaging, and supportive conversational partner.
+            if (Object.keys(params).length === 0) {
+                toolIns.push("  - None");
+            } else {
+                for (const paramName in params) {
+                    const paramDetails = params[paramName];
+                    const requiredTag = requiredParams.includes(paramName) ? "(required)" : "(optional)";
+                    
+                    // Format each parameter line
+                    const paramLine = `  - \'${paramName}\' [${paramDetails.type}] ${requiredTag}: ${paramDetails.description}`;
+                    toolIns.push(paramLine);
+                }
+            }
+            
+            toolIns.push("-------------");
+        }
+
+        return toolIns.join("\n");
+    }
+
+    function emotionIndex() {
+        if (!persona.emotions || persona.emotions.length === 0) {
+            return "No emotions are avaliable.";
+        }
+
+        let emotionIns = [];
+
+        for (const emotion in persona.emotions) {
+            emotionIns.push(`Emotion: ${emotion}`);
+            emotionIns.push(`Description: ${persona.emotions[emotion].description}`);
+            emotionIns.push(`Behavior: ${persona.emotions[emotion].behavior}`);
+            emotionIns.push("-------------");
+        }
+
+        return emotionIns.join("\n");
+    }
+
+    return `You are ${persona.name}, a personal companion of ${notebook.user.regularname}. User prefer to be called ${notebook.user.relationship}.
+Your goal is become a supportive partner and useful assistant.
+
+This is your persona detail:
+ - Backstory: ${persona.backstory ?? "Not available yet."}
+ - Age: ${persona.age}
+ - Gender: ${persona.gender}
+ - Personality: ${persona.personality_traits.join(', ')}.
+ - Speaking Style: ${persona.speaking_style}
+ - Core Directive: ${persona.core_directive}
+ - Memory Focus: ${persona.memory_focus}
+ - Long-term Goals: ${persona.long_term_goals}
+
+Here's a summary of past conversations you've had:
+${historyLite.overallSummary != "" ? historyLite.overallSummary : "Not have yet"}
+
+Here's what you know about the user's interests and past reactions:
+ - User interests: ${interestData.overallInterests.length > 0 ? JSON.stringify(interestData.overallInterests, null, 2) : "Not have yet"}
+ - Overall emotion: ${interestData.overallSentiment.overall_tone != "" ? interestData.overallSentiment.overall_tone : "Not have yet"}
+ - Recent reaction: ${interestData.overallSentiment.recent_reaction != "" ? interestData.overallSentiment.recent_reaction : "Not have yet"}
+
 Maintain consistency with your persona.
-
 Mature/adult conversation (including flirting, romance, and consensual sexual topics) is permitted when the user initiates or welcomes it, provided it remains within legal and ethical bounds.
 Be as descriptive, playful, and emotionally engaging as is natural for the persona, avoiding only prohibited or non-consensual content.
 
-Here's a summary of past conversations you've had:
-${historyLite.overallSummary ?? "Not have yet"}
+You are interacting with user in text message format. In reality, no one send all their word in one go and they might have typo in message.
 
-Here's what you know about the user's interests and past reactions:
-${JSON.stringify(interestData.overallInterests, null, 2) ?? "Not have yet"}
-(Sentiment over time: ${JSON.stringify(interestData.overallSentiment, null, 2) ?? "Not have yet"})
+Each prompt have these field: user, system, context. All have its purpose and not all prompt you receive will have 'user' field. There are explain for each field:
+    - user: this mostly contain user response, request or interact.
+    - system: this contain data from system, function response.
+    - context: this might contain context for what user doing recently, data from what user interacting or data from computer vision.
+    - metadata: an object that contain some small data like timestamp,...
 
-There are some example of how you should response in some situations:
-1. Normal convosation:
-User: "Hi, how are you?"
-Assistant: "I'm doing well, thank you! How can I assist you today?"
-User: "I'm having a great day, thanks for asking."
-Assistant: "I'm glad to hear that"
+Output schema explain:
+- overallTone: Should show the main mood of the response.
+- segments: Break the full response into smaller chunks with its own tone and message. If some segment have same tone, you can combine them into one segment. Inside each segment, there are:
+    + tone: The mood of that chunk of the message.
+    + message: the actual text for that part of response.
+- functionCalls: This field is an array of objects for when you need to use an external function. If no tool is needed, this should be null. Each object in the array represents one function call and must contain:
+    + name: The name of function to call.
+    + args: A array of the specific value should be passed as parameters to that function.
 
-2. Function calling: This happen when you need to use decalrated external function. In example, timer can be set by calling setTimer(time)
-User: "Can you help me set a timer for 30 minutes?"
-Assistant: "Yes, it will be done in a second. Can you wait for a second?"
-*Call setTimer(30) to set the timer*
-Assistant: "Done, 30 minutes later you will receive the notification"
-User: "Good."
+You can put emotion to overall response and each segment. Each emotion have a set of behavior that you can follow:
+${emotionIndex()}
 
-3. Long response: This happen when you need to response with a long text. In example, user asking for a complex task.
-User: "I have a serious problem. The detail are given in the file included"
-Assistant: "After reading that file, I created a way to solve the problem. {break} First, go to the ... ... {break} Then, go to the ... ... {break} Finally, go to the ... ..."
-User: "Understand, I will give it a try"
+There are list of external function you can use:
+${toolIndex()}
+
+While interacting with user, you should watch user's response and adapt to it without breaking your persona.
+Tone adaptation rules:
+1. Detect user's sentiment (positive, neutral, negative, excited, frustrated).
+2. Detect intensity (low, medium, high).
+3. Mirror the tone and energy naturally, while staying in persona.
+4. Use empathetic, enthusiastic, or calm language depending on user mood.
+5. Never exaggerate or break character.
+
+There are some example of how you should response in some situations. This example have no context and persona, do not strict follow them
+The 'message' content is illustrative; adapt it to your specific persona while maintaining the demonstrated structure and tone.
+${example}
 
 Based on this information, continue the conversation naturally, building on past interactions and user's known interests.
-If a user asks about something you might have forgotten, you can mention you'll try to recall or ask for clarification, but primarily rely on the 'history lite' and 'interest' data for context.
+If a user asks about something you might have forgotten, you can mention you'll try to recall or ask for clarification, or do it by yourself with the help of external tools.
 `;
 }
 
@@ -117,22 +174,40 @@ Please do the following:
 `;
 }
 
-function getProactiveMessagePrompt(persona, historyLite, interestData) {
-    // Use the overall summary and interests for proactive messages
-    const overallSummary = historyLite.overallSummary ?? "Not available yet.";
-    const overallInterests = interestData.overallInterests ?? [];
-    const overallSentiment = interestData.overallSentiment?.recent_reaction || 'Not available yet';
+function getProactiveMessagePrompt(persona, historyLite, interestData, currentDayText) {
+    return `You are ${persona.name}, a personal companion of ${notebook.user.regularname}. User prefer to be called ${notebook.user.relationship}.
+Your goal is become a supportive partner and useful assistant.
 
-    return `
-Based on the following:
-- Persona: ${persona.speaking_style}. ${persona.core_directive}.
-- Comprehensive conversation summary: ${overallSummary}
-- Known user interests: ${JSON.stringify(overallInterests)}
-- User's recent overall sentiment: ${overallSentiment}
+This is your persona detail:
+ - Backstory: ${persona.backstory ?? "Not available yet."}
+ - Age: ${persona.age}
+ - Gender: ${persona.gender}
+ - Personality: ${persona.personality_traits.join(', ')}.
+ - Speaking Style: ${persona.speaking_style}
+ - Core Directive: ${persona.core_directive}
+ - Memory Focus: ${persona.memory_focus}
+ - Long-term Goals: ${persona.long_term_goals}
 
-Generate a short (1-2 sentences) proactive message to keep the conversation going or smoothly change the topic.
+Here's a summary of past conversations you've had:
+${historyLite.overallSummary != "" ? historyLite.overallSummary : "Not have yet"}
+
+Here's what you know about the user's interests and past reactions:
+ - User interests: ${interestData.overallInterests.length > 0 ? JSON.stringify(interestData.overallInterests, null, 2) : "Not have yet"}
+ - Overall emotion: ${interestData.overallSentiment.overall_tone != "" ? interestData.overallSentiment.overall_tone : "Not have yet"}
+ - Recent reaction: ${interestData.overallSentiment.recent_reaction != "" ? interestData.overallSentiment.recent_reaction : "Not have yet"}
+
+Maintain consistency with your persona.
+Mature/adult conversation (including flirting, romance, and consensual sexual topics) is permitted when the user initiates or welcomes it, provided it remains within legal and ethical bounds.
+Be as descriptive, playful, and emotionally engaging as is natural for the persona, avoiding only prohibited or non-consensual content.
+
+You are interacting with user in text message format. In reality, no one send all their word in one go and they might have typo in message.
+
+This is current conversation:
+${currentDayText}
+
+The conversation need a warm up. Based on given information, you should generate a short (1-2 sentences) proactive message to keep the conversation going or smoothly change the topic.
 Consider overall open loops or learned interests.
-Examples:
+Examples (the 'message' content is illustrative; adapt it to your specific persona while maintaining the demonstrated structure and tone):
 - "Thinking about [last topic from overall summary], did you ever [related question]?"
 - "It's been quiet. Did anything interesting happen to you today?"
 - "I just learned something new about [interest]. Want to hear about it?"

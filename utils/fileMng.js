@@ -7,6 +7,7 @@ const HISTORY_SESSION_PATH = path.join(DATA_PATH, 'history');
 const HISTORY_LITE_PATH = path.join(DATA_PATH, 'history_lite.json');
 const INTEREST_PATH = path.join(DATA_PATH, 'interest.json');
 const PERSONA_PATH = path.join(DATA_PATH, 'persona.json');
+const CONFIG_PATH = path.join(__dirname, '../config.json');
 
 let currentSessionHistoryPath;
 
@@ -194,6 +195,36 @@ async function readPersona() {
     }
 }
 
+async function readConfig() {
+    try {
+        log.info("Reading configuration...");
+        return await fs.readJson(CONFIG_PATH);
+    } catch (error) {
+        log.alert('Error reading configuration', error);
+        return null;
+    }
+}
+
+async function readNotebook() {
+    try {
+        log.info("Reading notebook...");
+        return await fs.readJson(path.join(DATA_PATH, 'notebook.json'));
+    } catch (error) {
+        log.alert('Error reading notebook', error);
+        return null;
+    }
+}
+
+async function readExample() {
+    try {
+        log.info("Reading example...");
+        return require(path.join(DATA_PATH, 'example.js'));
+    } catch (error) {
+        log.alert('Error reading example', error);
+        return null;
+    }
+}
+
 module.exports = {
     appendMessageToHistory,
     readFullHistory,
@@ -208,5 +239,8 @@ module.exports = {
     formatDate,
     getConfigFiles,
     readConfigFile,
-    writeConfigFile
+    writeConfigFile,
+    readConfig,
+    readNotebook,
+    readExample
 };
