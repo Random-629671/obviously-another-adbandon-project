@@ -34,7 +34,7 @@ function sendLogToUI(logMessage) {
 
 function sendChatMessageToUI(sender, message) {
     if (mainWindow) {
-        mainWindow.webContents.send('add-chat-message', { sender, message });
+        mainWindow.webContents.send('bot-response', { type: sender, message: message });
     } else {
         console.log("Could not send chat message to UI: mainWindow is not available.");
     }
@@ -48,6 +48,7 @@ async function startApp() {
 app.on('ready', () => {
     const window = createWindow();
     log.initLogger(sendLogToUI);
+    chatbotService.registerUICallback(sendChatMessageToUI);
     registerIpcHandlers(window);
     startApp();
 });

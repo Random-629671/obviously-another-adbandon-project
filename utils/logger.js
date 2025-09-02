@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const chalk = require("chalk");
+//const chalk = require("chalk");
 
 const startDate = new Date();
 const formattedDate = `${startDate.getFullYear()}-${(startDate.getMonth() + 1).toString().padStart(2, "0")}-${startDate.getDate().toString().padStart(2, "0")}`;
@@ -10,15 +10,15 @@ const logFileName = `./data/logs/logs_${formattedDate}_${formattedTime}.log`;
 let sendLogToUI = null;
 
 function info(title, data) {
-    logging(title, data, chalk.cyan, "INFO");
+    logging(title, data, 1, "INFO");
 }
 
 function warn(title, data) {
-    logging(title, data, chalk.yellow, "WARN");
+    logging(title, data, 1, "WARN");
 }
 
 function alert(title, data) {
-    logging(title, data, chalk.red, "ALRT");
+    logging(title, data, 1, "ALRT");
 }
 
 function logging(title, data, color, type) {

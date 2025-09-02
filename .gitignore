@@ -9,4 +9,4 @@ test
 
 .git
 
-config.json
+./config.json

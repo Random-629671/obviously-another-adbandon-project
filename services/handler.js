@@ -1,20 +1,69 @@
 const fileManager = require('../utils/fileMng.js');
 const log = require('../utils/logger.js');
 const { nanoid } = require('nanoid');
-const promptGen = require('../data/promptGen.js');
+const promptGen = require('../data/prompt/promptGen.js');
 
 const provider = "gemini";
 let api = null;
-const toolList = require('../extfunction/functionEntry.js');
-const functionHandler = require('../extfunction/functionHandler.js');
+const functionList = require('../externalFunction/functionEntry.js');
+const functionHandler = require('../externalFunction/functionHandler.js');
+const context = require('../data/prompt/contextLoader.js');
 
 //heh
 let chatHistory = [];
 let sessionId = nanoid(16);
-let ins = null, initHistory = null, uiCallback = null;
+let ins = null, initHistory = null, uiCallback = null, lastMessageTime = null;
 
 function registerUICallback(callback) {
     uiCallback = callback;
+}
+
+function sendChatMessageToUI(segments) {
+    if (uiCallback) {
+        uiCallback('bot', segments);
+    } else {
+        log.warn("No UI callback registered.");
+    }
+}
+
+function sendMessage(message, isSystem = false) {
+    const d = new Date();
+    const time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+
+    let role = isSystem ? "system" : "user";
+    let parts = null;
+    const diff = (d - new Date(lastMessageTime)) / 1000; //should be second
+    
+
+    if (!isSystem) {
+        parts = {
+            message: message,
+            metadata: {
+                timestamp: time,
+                timefromlastprompt: diff
+            }
+        };
+    } else {
+        parts = {
+            message: message.message,
+            datatype: message.datatype,
+            method: message.method,
+            inline: message.inline ? message.inline : null,
+            result: message.result,
+            metadata: {
+                timestamp: time,
+                timefromlastprompt: diff
+            }
+        }
+    }
+    
+    try {
+        processMessage(role, parts);
+    } catch (error) {
+        log.alert("Error processing message", error);
+    }
+
+    lastMessageTime = time;
 }
 
 async function setProvider() {
@@ -45,52 +94,83 @@ async function initializeService() { //todo: fix init message
     fileManager.setCurrentSessionHistoryPath(sessionId);
     await setProvider();
 
-    ins = promptGen.getSystemInstruction(persona, historyLite, interestData, notebook, toolList, example);
+    ins = promptGen.getSystemInstruction(persona, historyLite, interestData, notebook, functionList, example);
+    //console.log(ins);
 
-    await api.init(ins, toolList, config.apis.ext);
+    await api.init(ins, functionList, config.apis.ext);
 
-    // initMessagePrompt = promptGen.getInitalMessagePrompt(persona, historyLite, interestData);
+    functionHandler.sendMessageCallback(sendMessage);
 
-    // const init = await initalMessageMaker(initMessagePrompt); //api response must in Json schema. todo: add a check
-    // const initTone = init.overallTone;
-
-    // initHistory = [
-    //     { role: "model", parts: [{ text: initResponse }] }
-    // ];
-
-    // chatHistory.push({ role: "model", parts: [{ text: initResponse }] });
-    // fileManager.appendMessageToHistory({
-    //     role: "model",
-    //     text: initResponse,
-    //     timestamp: new Date().toISOString(),
-    //     sessionId: sessionId
-    // });
-
-    //if(uiCallback) uiCallback(init)
+    //for init message: add in sesson prompt as system role to tell model to do init, same as proactive
+    //need to test precision (is this word correct?)
 
     log.info("Initing done, me go home");
 }
 
-async function sendMessage(userMessage) {
+async function processMessage(role, parts) {
     try {
-        console.log("i ran");
-        chatHistory.push({ role: "user", parts: [{ text: userMessage }] });
+        const message = parts.message;
+        chatHistory.push({ role: role, parts: [{ text: message }] });
 
-        const result = await api.sendMessage(userMessage);
+        let prompt = [], inlineData = null, text = null;
+
+        if (role == "system") {
+            const textprompt =
+`System: ${message}
+Metadata: {
+    ${parts.metadata.timestamp},
+    ${parts.metadata.timefromlastprompt} seconds
+}`;
+
+            text = { text: textprompt };
+            if (parts.method == "inline") {
+                if (parts.datatype == "image") {
+                    for (const img of parts.inline) {
+                        inlineData = {
+                            mimeType: "image/jpeg",
+                            data: img
+                        };
+                        prompt.push({ inlineData: inlineData });
+                    }
+                } //else other file type leave first
+            } else if (parts.method == "files") {
+                //something
+            } else if (parts.method == "prompt") {
+                const l = parts.message + ". Returned result: " + parts.result;
+                text = { text: l }; //overwrite text
+            }
+            
+            prompt.push(text);
+        } else if (role == "user") {
+            const textprompt =
+`User: ${message}
+Metadata: {
+    ${parts.metadata.timestamp},
+    ${parts.metadata.timefromlastprompt} seconds
+}`;
+
+            text = { text: textprompt };
+            prompt.push(text);
+        }
+
+        //console.log(prompt);
+
+        const result = await api.sendMessage(prompt);
         const segments = result.segments;
         const response = segments.map(seg => seg.message).join('\n');
+        //log.info(`Bot in handler.js: ${response}`);
 
         if (result.functionCalls) {
             for (const func of result.functionCalls) {
-                functionHandler(func);
+                functionHandler.exec(func.name, func.args);
             }
         }
 
         chatHistory.push({ role: "model", parts: [{ text: response }] });
 
         await fileManager.appendMessageToHistory({
-            role: "user",
-            text: userMessage,
+            role: role,
+            text: message,
             timestamp: new Date().toISOString(),
             sessionId: sessionId
         });
@@ -101,10 +181,11 @@ async function sendMessage(userMessage) {
             sessionId: sessionId
         });
 
-        return segments;
+        sendChatMessageToUI(segments);
     } catch (error) {
         log.alert("Error sending message through API", error);
-        return "I'm sorry, I'm having trouble connecting right now. Could you please try again?";
+        const errorResponse = "I'm sorry, I'm having trouble connecting right now. Could you please try again?";
+        sendChatMessageToUI([{ message: errorResponse }]);
     }
 }
 

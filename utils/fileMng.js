@@ -4,9 +4,9 @@ const log = require(path.join(__dirname, 'logger.js'));
 
 const DATA_PATH = path.join(__dirname, '../data');
 const HISTORY_SESSION_PATH = path.join(DATA_PATH, 'history');
-const HISTORY_LITE_PATH = path.join(DATA_PATH, 'history_lite.json');
-const INTEREST_PATH = path.join(DATA_PATH, 'interest.json');
-const PERSONA_PATH = path.join(DATA_PATH, 'persona.json');
+const HISTORY_LITE_PATH = path.join(DATA_PATH, 'prompt/history_lite.json');
+const INTEREST_PATH = path.join(DATA_PATH, 'prompt/interest.json');
+const PERSONA_PATH = path.join(DATA_PATH, 'prompt/persona.json');
 const CONFIG_PATH = path.join(__dirname, '../config.json');
 
 let currentSessionHistoryPath;
@@ -29,6 +29,11 @@ async function readFile(filePath, encoding = 'utf8') {
 function formatDate() {
     const date = new Date();
     return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+}
+
+function formatTime() {
+    const time = new Date();
+    return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}:${time.getSeconds().toString().padStart(2, '0')}`;
 }
 
 async function getConfigFiles() {
@@ -208,7 +213,7 @@ async function readConfig() {
 async function readNotebook() {
     try {
         log.info("Reading notebook...");
-        return await fs.readJson(path.join(DATA_PATH, 'notebook.json'));
+        return await fs.readJson(path.join(DATA_PATH, 'prompt/notebook.json'));
     } catch (error) {
         log.alert('Error reading notebook', error);
         return null;
@@ -218,12 +223,14 @@ async function readNotebook() {
 async function readExample() {
     try {
         log.info("Reading example...");
-        return require(path.join(DATA_PATH, 'example.js'));
+        return require(path.join(DATA_PATH, 'prompt/example.js'));
     } catch (error) {
         log.alert('Error reading example', error);
         return null;
     }
 }
+
+//todo: clean this, break or smt idk
 
 module.exports = {
     appendMessageToHistory,
@@ -237,6 +244,7 @@ module.exports = {
     setCurrentSessionHistoryPath,
     readFile,
     formatDate,
+    formatTime,
     getConfigFiles,
     readConfigFile,
     writeConfigFile,

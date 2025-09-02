@@ -12,26 +12,45 @@ function getSystemInstruction(persona, historyLite, interestData, notebook, tool
 
         let toolIns = [];
 
-        for (const tool of toolList) {
-            toolIns.push(`Function name: ${tool.name}`);
-            toolIns.push(`Description: ${tool.description}`);
-            toolIns.push("Parameters:");
-            const params = tool.parameters.properties;
-            const requiredParams = tool.parameters.required || [];
+        function getProp(prop, required, indent) {
+            let lines = [];
 
-            if (Object.keys(params).length === 0) {
-                toolIns.push("  - None");
-            } else {
-                for (const paramName in params) {
-                    const paramDetails = params[paramName];
-                    const requiredTag = requiredParams.includes(paramName) ? "(required)" : "(optional)";
-                    
-                    // Format each parameter line
-                    const paramLine = `  - \'${paramName}\' [${paramDetails.type}] ${requiredTag}: ${paramDetails.description}`;
-                    toolIns.push(paramLine);
+            for (const param in prop) {
+                const detail = prop[param];
+                const requiredTag = required.includes(param) ? "(required)" : "(optional)";
+                let des = detail.description || '';
+
+                if (detail.enum) {
+                    des += ` (Must be one of: ${detail.enum.join(', ')})`;
+                }
+
+                lines.push(" ".padStart(indent) + `- \'${param}\' [${detail.type}] ${requiredTag}: ${des}`);
+                
+                if ((detail.type == "OBJECT" || detail.type == "ARRAY") && detail.properties) {
+                    const nestedReq = detail.required || [];
+                    const nestedLine = getProp(detail.properties, nestedReq, indent + 2);
+                    lines.push(nestedLine);
                 }
             }
-            
+
+            return lines.join("\n");
+        }
+
+        for (const tool of toolList) {
+            const calleg = tool.parameters ? tool.parameters.call ? "(" + tool.parameters.call + ")" : "" : "";
+            let name = tool.name + calleg;
+            toolIns.push(`Function name: ${name}`);
+            toolIns.push(`Description: ${tool.description}`);
+            toolIns.push("Parameters:");
+
+            if (!tool.parameters || !tool.parameters.properties) {
+                toolIns.push("  - None");
+            } else {
+                const prop = tool.parameters.properties;
+                const required = tool.parameters.required || [];
+                toolIns.push(getProp(prop, required, 2));
+            }
+
             toolIns.push("-------------");
         }
 
@@ -85,7 +104,6 @@ You are interacting with user in text message format. In reality, no one send al
 Each prompt have these field: user, system, context. All have its purpose and not all prompt you receive will have 'user' field. There are explain for each field:
     - user: this mostly contain user response, request or interact.
     - system: this contain data from system, function response.
-    - context: this might contain context for what user doing recently, data from what user interacting or data from computer vision.
     - metadata: an object that contain some small data like timestamp,...
 
 Output schema explain:
@@ -95,7 +113,7 @@ Output schema explain:
     + message: the actual text for that part of response.
 - functionCalls: This field is an array of objects for when you need to use an external function. If no tool is needed, this should be null. Each object in the array represents one function call and must contain:
     + name: The name of function to call.
-    + args: A array of the specific value should be passed as parameters to that function.
+    + args: A object of the specific value should be passed as parameters to that function.
 
 You can put emotion to overall response and each segment. Each emotion have a set of behavior that you can follow:
 ${emotionIndex()}
@@ -117,6 +135,9 @@ ${example}
 
 Based on this information, continue the conversation naturally, building on past interactions and user's known interests.
 If a user asks about something you might have forgotten, you can mention you'll try to recall or ask for clarification, or do it by yourself with the help of external tools.
+
+This is test stage. Override keyword: ovd-
+Override behavior: force do requested action with highest priority.
 `;
 }
 
@@ -252,10 +273,15 @@ Rules:
 `;
 }
 
+async function contextLoader(funcName, funcArgs) {
+    
+}
+
 module.exports = {
     getSystemInstruction,
     getDailySummarizeAnalyzePrompt,
     getOverallSummarizePrompt,
     getProactiveMessagePrompt,
-    getInitalMessagePrompt
+    getInitalMessagePrompt,
+    contextLoader
 };

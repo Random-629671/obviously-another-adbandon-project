@@ -205,7 +205,7 @@ async function init(ins, toolList, apiKey) {
                             required: ["name", "args"]
                         },
                         nullable: true
-                    }
+                    },
                 },
                 propertyOrdering: ["overallTone", "segments", "functionCalls"],
                 required: ["overallTone", "segments"]

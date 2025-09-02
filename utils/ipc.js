@@ -13,11 +13,7 @@ function registerIpcHandlers(mainWindow) {
 
         mainWindow.webContents.send('bot-response', { type: 'bot', message: '...' });
 
-        const botResponse = await chatbotService.sendMessage(userMessage);
-        const combinedLogMessage = botResponse.map(seg => seg.message).join(' | ');
-        log.info(`Bot: ${combinedLogMessage}`);
-
-        mainWindow.webContents.send('bot-response', { type: 'bot', message: botResponse, thinking: false });
+        await chatbotService.sendMessage(userMessage);
     });
 
     ipcMain.handle('get-history', () => fileManager.readFullFullHistory());

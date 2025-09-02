@@ -1,8 +1,8 @@
 import { UIElements, addChatMessage } from './uiMng.js';
 
 let thinkingBubble = null;
-const typeSpeed = 30;
-const betweenMessage = 1600;
+const typeSpeed = 16;
+const betweenMessage = 3200;
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -17,18 +17,19 @@ function handleSend() {
     }
 }
 
-function typeMessage(bubble, text) {
+function typeMessage(text) {
     return new Promise(resolve => {
         let i = 0;
-        bubble.textContent = '';
+        thinkingBubble.textContent = '';
 
         function type() {
             if (i < text.length) {
-                bubble.textContent += text.charAt(i);
+                thinkingBubble.textContent += text.charAt(i);
                 i++;
-                UIElements.chatContainer.scrollTop = UIElements.chatContainer.scrollHeight;
+                UIElements.chatWindow.scrollTop = UIElements.chatWindow.scrollHeight;
                 setTimeout(type, typeSpeed);
             } else {
+                thinkingBubble = null;
                 resolve();
             }
         }
@@ -39,16 +40,14 @@ function typeMessage(bubble, text) {
 
 async function processSegment(segments) {
     console.log("i ran");
-    const thinkingBubble = UIElements.chatWindow.querySelectorAll('.bot');
-    const last = thinkingBubble[thinkingBubble.length - 1];
-    if (last && last.textContent == "...") {
-        last.remove();
-    }
 
     for (const seg of segments) {
-        const bubble = addChatMessage('bot', '');
-        await typeMessage(bubble, seg.message);
-        await delay(betweenMessage);
+        if (!thinkingBubble) {
+            thinkingBubble = addChatMessage('bot', '...');
+            await delay(betweenMessage);
+        }
+
+        await typeMessage(seg.message);
     }
 }
 
@@ -58,17 +57,20 @@ export function initChat() {
         if (e.key === 'Enter') handleSend();
     });
 
-    window.electronAPI.onBotResponse(({ type, segments }) => {
-        if (type !== 'bot') return;
-
-        if (segments.length === 1 && segments[0].message === '...') {
-            const lastBubble = UIElements.chatWindow.querySelector('.bot:last-child');
-            if (!lastBubble || lastBubble.textContent !== '...') {
-                addChatMessage('bot', '...');
-            }
+    window.electronAPI.onBotResponse(({ type, message }) => {
+        if (type !== 'bot') {
             return;
         }
 
-        processSegment(segments);
+        if (typeof message == 'string') {
+            if (message == '...') {
+                if (!thinkingBubble) thinkingBubble = addChatMessage('bot', '...');
+                return;
+            } else {
+                message = [{ message }];
+            }
+        }
+
+        processSegment(message);
     });
 }
