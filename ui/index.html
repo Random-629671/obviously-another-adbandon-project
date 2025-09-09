@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>lelele</title>
+    <title>At least, working app (i guess)</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -10,7 +10,6 @@
         <nav class="sidebar">
             <div class="tabs">
                 <button class="tab-button active" data-tab="chat">Chat</button>
-                <button class="tab-button" data-tab="history">History</button>
                 <button class="tab-button" data-tab="config">Config</button>
                 <button class="tab-button" data-tab="log">Log</button>
             </div>
@@ -23,15 +22,11 @@
             <div id="chat" class="tab-content active">
                 <div class="chat-window"></div>
                 <div class="chat-input-area">
+                    <button id="record-button" class="stt-button">🎤</button>
+                    <button id="stop-record-button" class="stt-button" style="display: none;">■</button>
                     <input type="text" id="chat-input" placeholder="Type your message here...">
                     <button id="send-button">➤</button>
                 </div>
-            </div>
-
-            <!-- History Tab -->
-            <div id="history" class="tab-content">
-                <h2>Conversation History</h2>
-                <div id="history-list"></div>
             </div>
 
             <!-- Config Tab -->

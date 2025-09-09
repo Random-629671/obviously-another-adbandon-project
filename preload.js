@@ -14,4 +14,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onLogUpdate: (callback) => ipcRenderer.on('log-update', (_event, value) => callback(value)),
 
     onAddChatMessage: (callback) => ipcRenderer.on('add-chat-message', (_event, value) => callback(value)),
+
+    synthesizeSpeech: (text) => ipcRenderer.invoke('synthesize-speech', text),
+    transcribeAudio: (audioBuffer) => ipcRenderer.invoke('transcribe-audio', audioBuffer),
+
+    on: (channel, func) => {
+        let validChannels = ['play-bot-speech'];
+        if (validChannels.includes(channel)) {
+            ipcRenderer.on(channel, (event, ...args) => func(...args));
+        }
+    },
 });

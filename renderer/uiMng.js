@@ -21,11 +21,36 @@ export const UIElements = {
     logTab: document.getElementById('log'),
 };
 
-export function addChatMessage(sender, message) {
+export function addChatMessage(sender, message, timestamp) {
+    const wrapper = document.createElement('div');
+    wrapper.classList.add('message', sender);
+
     const bubble = document.createElement('div');
     bubble.classList.add('chat-bubble', sender);
+
+    const time = document.createElement('span');
+    time.classList.add('time');
+
     bubble.textContent = message;
-    UIElements.chatWindow.appendChild(bubble);
-    UIElements.chatWindow.scrollTop = UIElements.chatWindow.scrollHeight;
-    return bubble;
+
+    if (timestamp) time.textContent = new Date(timestamp).toLocaleTimeString();
+
+    if (sender == 'user') {
+        if (time.textContent) wrapper.appendChild(time);
+        wrapper.appendChild(bubble);
+    } else {
+        wrapper.appendChild(bubble);
+        if (time.textContent) wrapper.appendChild(time);
+    }
+
+    UIElements.chatWindow.appendChild(wrapper);
+    return wrapper;
+}
+
+export function addDateSeparator(date) {
+    const separator = document.createElement('div');
+    separator.classList.add('chat-date-separator');
+    separator.textContent = date;
+    UIElements.chatWindow.appendChild(separator);
+    return separator;
 }

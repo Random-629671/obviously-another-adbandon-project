@@ -151,7 +151,7 @@ async function init(ins, toolList, apiKey) {
         model: MODEL_NAME_CHAT,
         config: {
             temperature: 1.6,
-            maxOutputTokens: 610,
+            maxOutputTokens: 4096,
             systemInstruction: ins,
             thinkingConfig: {
                 thinkingBudget: -1,
@@ -241,13 +241,28 @@ const gen = async (prompt, config) => {
     return JSON.parse(result.candidates[0].content.parts[0].text);
 }
 
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function sendMessage(userMessage) {
     try {
         const result = await chatModel.sendMessage({ message: userMessage });
-        return JSON.parse(result.candidates[0].content.parts[0].text);
+        await delay(500);
+        console.log(result.text);
+        await delay(500);
+        return JSON.parse(result.text);
     } catch (error) {
         log.alert("Error sending message to Gemini", error);
-        return "I'm sorry, I'm having trouble connecting right now. Could you please try again?";
+        const errorResponse = {
+            overallTone: "neutral",
+            segments: [
+                {
+                    tone: "neutral",
+                    message: "I'm sorry, I'm having trouble connecting right now. Could you please try again?"
+                }
+            ],
+            functionCalls: null
+        }
+        return errorResponse;
     }
 }
 

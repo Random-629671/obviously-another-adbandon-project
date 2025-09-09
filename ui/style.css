@@ -13,11 +13,41 @@ body, html { margin: 0; padding: 0; font-family: sans-serif; height: 100vh; over
 
 /* Chat Tab */
 .chat-window { flex-grow: 1; overflow-y: auto; margin-bottom: 10px; display: flex; flex-direction: column; }
-.chat-bubble { max-width: 70%; padding: 10px 15px; border-radius: 20px; margin-bottom: 10px; line-height: 1.4; }
-.user { background-color: #5865f2; color: white; align-self: flex-end; margin-left: auto; }
-.bot { background-color: #4f545c; color: white; align-self: flex-start; }
-.chat-input-area { display: flex; }
-#chat-input { flex-grow: 1; padding: 10px; border-radius: 8px; border: none; background-color: #40444b; color: white; }
+.message {
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 10px;
+  margin-right: 16px;
+}
+
+.chat-bubble {
+  max-width: 70%;
+  padding: 10px 15px;
+  border-radius: 20px;
+  line-height: 1.4;
+}
+
+.user {
+  justify-content: flex-end;
+}
+
+.user .chat-bubble {
+  background-color: #5865f2;
+  color: white;
+  margin-left: 8px; /* space between time and bubble */
+}
+
+.bot {
+  justify-content: flex-start;
+}
+
+.bot .chat-bubble {
+  background-color: #4f545c;
+  color: white;
+  margin-right: 8px; /* space between bubble and time */
+}
+.chat-input-area { display: flex; align-items: center; }
+#chat-input { flex-grow: 1; padding: 10px; border-radius: 8px; border: none; background-color: #40444b; color: white; margin-right: 10px;}
 #send-button { background: #5865f2; border: none; color: white; padding: 10px 15px; margin-left: 10px; border-radius: 8px; cursor: pointer; }
 
 /* History Tab */
@@ -38,3 +68,58 @@ textarea.config-value-input { resize: vertical; min-height: 80px; }
 
 /* Log Tab */
 #log-output { background-color: #36393f; border-radius: 5px; padding: 15px; height: 100%; white-space: pre-wrap; word-wrap: break-word; }
+
+/* Date Separator in Chat */
+.chat-date-separator {
+    text-align: center;
+    margin: 20px 0;
+    font-size: 12px;
+    color: #e0e3e7;
+    position: relative;
+    padding: 0 10px;
+}
+
+.chat-date-separator::before,
+.chat-date-separator::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 40%; /* Adjust line length as needed */
+    height: 1px;
+    background-color: #ced2d8;
+}
+
+.chat-date-separator::before {
+    left: 0;
+}
+
+.chat-date-separator::after {
+    right: 0;
+}
+
+.time {
+    font-size: 10px;
+    color: #aaa;
+    white-space: nowrap;
+}
+
+.stt-button {
+    background: #5865f2;
+    border: none;
+    color: white;
+    padding: 10px 15px;
+    margin-right: 10px; /* Space between buttons and input */
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1; /* Center icon vertically */
+}
+.stt-button:active {
+    background-color: #434fb3; /* Darker on active */
+}
+.recording-active {
+    background-color: #dc3545; /* Red for recording */
+}
+.recording-active:active {
+    background-color: #bd2130;
+}

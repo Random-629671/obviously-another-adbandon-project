@@ -34,7 +34,7 @@ function sendMessage(message, isSystem = false) {
     let parts = null;
     const diff = (d - new Date(lastMessageTime)) / 1000; //should be second
     
-
+    console.log(message);
     if (!isSystem) {
         parts = {
             message: message,
@@ -109,6 +109,7 @@ async function initializeService() { //todo: fix init message
 
 async function processMessage(role, parts) {
     try {
+        console.log(parts);
         const message = parts.message;
         chatHistory.push({ role: role, parts: [{ text: message }] });
 
@@ -256,8 +257,8 @@ async function summarizeAndAnalyze() {
         }
     }
 
-    if (historyLite.dailySummaries.findIndex(summary => summary.date == messageDate) == -1) await historyLite.dailySummaries.push(historyEntry);
-    if (interestData.dailyInterests.findIndex(interest => interest.date == messageDate) == -1) await interestData.dailyInterests.push(interestEntry);
+    if (historyLite.dailySummaries.findIndex(summary => summary.date == today) == -1) await historyLite.dailySummaries.push(historyEntry);
+    if (interestData.dailyInterests.findIndex(interest => interest.date == today) == -1) await interestData.dailyInterests.push(interestEntry);
     historyLiteIndex = historyLite.dailySummaries.findIndex(summary => summary.date == today);
     interestIndex = interestData.dailyInterests.findIndex(interest => interest.date == today);
 
@@ -361,39 +362,10 @@ async function retrieveRelevantHistory(query) {
     return "";
 }
 
-async function proactiveMessageMaker() {
-    const historyLite = await fileManager.readHistoryLite();
-    const interestData = await fileManager.readInterestData();
-    const persona = await fileManager.readPersona();
-
-    const prompt = promptGen.getProactiveMessagePrompt(persona, historyLite, interestData);
-
-    try {
-        const result = await api.proactiveMessageMaker(prompt);
-        log.info("Created a proactive message.");
-        return result;
-    } catch (error) {
-        log.alert("Error during creating proactive message", error);
-        return "Still here! Anything else you'd like to chat about?";
-    }
-}
-
-async function initalMessageMaker(prompt) {
-    try {
-        const result = await api.initalMessageMaker(prompt);
-        log.info("Created an initial message.");
-        return JSON.parse(result);
-    } catch (error) {
-        log.alert("Error during creating initial message", error);
-        return ["I just woke up", "I see, did you had a good sleep?"];
-    }
-}
-
 module.exports = {
     initializeService,
     sendMessage,
     summarizeAndAnalyze,
     retrieveRelevantHistory,
-    proactiveMessageMaker,
     registerUICallback
 };

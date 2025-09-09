@@ -10,10 +10,13 @@ let mainWindow;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 1000,
-        height: 700,
+        width: 1280,
+        height: 720,
         webPreferences: {
-            preload: path.join(__dirname, 'preload.js')
+            preload: path.join(__dirname, 'preload.js'),
+            nodeIntegration: false,
+            contextIsolation: true,
+            webSecurity: true
         }
     });
 
@@ -35,6 +38,13 @@ function sendLogToUI(logMessage) {
 function sendChatMessageToUI(sender, message) {
     if (mainWindow) {
         mainWindow.webContents.send('bot-response', { type: sender, message: message });
+
+        if (sender == 'bot' && message && Array.isArray(message)) {
+            const fullMsg = message.map(seg => seg.message).join(' ');
+            if (fullMsg.trim() != '' && fullMsg.trim() != '...') {
+                mainWindow.webContents.send('play-bot-speech', fullMsg);
+            }
+        }
     } else {
         console.log("Could not send chat message to UI: mainWindow is not available.");
     }
