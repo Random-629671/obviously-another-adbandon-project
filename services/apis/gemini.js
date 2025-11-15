@@ -2,7 +2,7 @@ const log = require('../../utils/logger.js');
 const { GoogleGenAI } = require('@google/genai');
 
 const MODEL_NAME_CHAT = "gemini-2.5-flash";
-const MODEL_NAME_SUMMARIZE_ANALYZE = "gemini-2.5-pro";
+const MODEL_NAME_SUMMARIZE_ANALYZE = "gemini-2.5-flash";
 
 let chatModel = null, chatAPI = null;
 
@@ -182,11 +182,11 @@ async function init(ins, toolList, apiKey) {
                     overallTone: { type: 'string', enum: ["neutral","friendly","excited","curious","playful","empathetic","encouraging","serious","flirty","comforting","frustrated"] },
                     segments: {
                         type: 'array',
-                        minItems: 1,
                         items: {
                             type: 'object',
                             properties: {
                                 tone: { type: 'string', enum: ["neutral","friendly","excited","curious","playful","empathetic","encouraging","serious","flirty","comforting","frustrated"] },
+                                delay: { type: 'number' },
                                 message: { type: 'string' }
                             },
                             propertyOrdering: ["tone", "message"],
@@ -220,6 +220,7 @@ async function init(ins, toolList, apiKey) {
     segments: [
         {
             tone: "",
+            delay: 0,
             message: ""
         }
     ],

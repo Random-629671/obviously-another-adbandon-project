@@ -1,10 +1,12 @@
 const { ipcMain } = require('electron');
-const chatbotService = require('../services/handler.js');
+const chatbotService = require('../services/serviceHandler.js');
 const fileManager = require('../utils/fileMng');
 const log = require('../utils/logger');
 const config = require('../config.json');
 const tts = require('../services/tts');
 const stt = require('../services/stt');
+const os = require('os');
+const path = require('path');
 const fs = require('fs-extra');
 
 const waitingTime = config.inactive_wait_time_minute * 60 * 1000;
@@ -70,16 +72,26 @@ function registerIpcHandlers(mainWindow) {
     });
 
     ipcMain.handle('transcribe-audio', async (event, audioBuffer) => {
+        const tempFilePath = path.join(os.tmpdir(), `temp_audio_${Date.now()}.webm`);
         try {
             const buffer = Buffer.from(audioBuffer);
-            const transcription = await stt.transcribeAudio(buffer);
-            log.info(`Transcription: ${transcription}`);
+            await fs.writeFile(tempFilePath, buffer);
+            log.info('IPC Handler', `Audio buffer saved to temporary file: ${tempFilePath}`);
+            
+            const transcription = await stt.transcribeAudio(tempFilePath);
+            log.info('IPC Handler', `Transcription received: ${transcription}`);
             return transcription;
+
         } catch (error) {
             log.alert('Error transcribing audio:', error);
             return 'Error transcribing audio.';
+        } finally {
+            if (await fs.pathExists(tempFilePath)) {
+                await fs.remove(tempFilePath);
+                log.info('IPC Handler', `Cleaned up temporary audio file: ${tempFilePath}`);
+            }
         }
-    })
+    });
 }
 
 function proactiveMessageSingal() {

@@ -1,12 +1,11 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
-const chatbotService = require('./services/handler.js');
-const log = require('./utils/logger.js');
-const { registerIpcHandlers } = require('./utils/ipc');
+
+let chatbotService;
+let log;
+let registerIpcHandlers;
 
 let mainWindow;
-
-//process.env.GOOGLE_APPLICATION_CREDENTIALS = path.join(__dirname, 'key.json');
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -20,7 +19,7 @@ function createWindow() {
         }
     });
 
-    mainWindow.loadFile('./ui/index.html');
+    mainWindow.loadFile(path.join(__dirname, './ui/index.html'));
     
     mainWindow.on('closed', function () {
         mainWindow = null;
@@ -36,7 +35,7 @@ function sendLogToUI(logMessage) {
 }
 
 function sendChatMessageToUI(sender, message) {
-    if (mainWindow) {
+    if (mainWindow && mainWindow.webContents) {
         mainWindow.webContents.send('bot-response', { type: sender, message: message });
 
         if (sender == 'bot' && message && Array.isArray(message)) {
@@ -50,33 +49,45 @@ function sendChatMessageToUI(sender, message) {
     }
 }
 
-async function startApp() {
-    await chatbotService.initializeService();
-    log.info("Bot is awake and ready in the UI!");
-}
+app.whenReady().then(async () => {
+    chatbotService = require('./services/serviceHandler.js');
+    log = require('./utils/logger.js');
+    registerIpcHandlers = require('./utils/ipc').registerIpcHandlers;
 
-app.on('ready', () => {
+    try {
+        await chatbotService.initializeService();
+        log.info("Bot is awake and ready in the UI!");
+    } catch (error) {
+        log.alert("CRITICAL: Failed to initialize chatbot service.", error);
+        app.quit();
+        return;
+    }
+
     const window = createWindow();
+
     log.initLogger(sendLogToUI);
     chatbotService.registerUICallback(sendChatMessageToUI);
     registerIpcHandlers(window);
-    startApp();
+
+    app.on('activate', function () {
+        if (BrowserWindow.getAllWindows().length === 0) {
+            createWindow();
+        }
+    });
 });
 
 app.on('window-all-closed', async () => {
-    log.warn("All windows closed. Shutting down.");
-    await chatbotService.summarizeAndAnalyze();
+    if (chatbotService) {
+        log.warn("All windows closed. Shutting down.");
+        await chatbotService.summarizeAndAnalyze();
+    }
+
     if (process.platform !== 'darwin') {
         app.quit();
     }
-    log.warn("Real quitting...");
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('UNCAUGHT EXCEPTION:', error);
     process.exit(1);
 });
-
-app.on('activate', function () {
-    if (mainWindow === null) {
-        createWindow();
-    }
-});
-
-module.exports = { sendLogToUI, sendChatMessageToUI };

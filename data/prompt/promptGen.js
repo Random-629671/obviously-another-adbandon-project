@@ -110,7 +110,8 @@ Output schema explain:
 - overallTone: Should show the main mood of the response.
 - segments: Break the full response into smaller chunks with its own tone and message. If some segment have same tone, you can combine them into one segment. Inside each segment, there are:
     + tone: The mood of that chunk of the message.
-    + message: the actual text for that part of response.
+    + delay: A waiting delay between each message to make the conversation more realistic. 
+    + message: The actual text for that part of response.
 - functionCalls: This field is an array of objects for when you need to use an external function. If no tool is needed, this should be null. Each object in the array represents one function call and must contain:
     + name: The name of function to call.
     + args: A object of the specific value should be passed as parameters to that function.

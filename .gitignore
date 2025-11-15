@@ -5,8 +5,9 @@ node_modules
 data/history
 data/logs
 
-test
+tests
 
 .git
+.venv
 
 ./config.json

@@ -1,34 +1,44 @@
-const speech = require('@google-cloud/speech').v1p1beta1;
-const log = require('../utils/logger');
+const { spawn } = require('child_process');
+const path = require('path');
+const log = require('../utils/logger.js');
 
-const client = new speech.SpeechClient();
+function transcribeAudio(filePath) {
+    return new Promise((resolve, reject) => {
+        const scriptPath = path.join(__dirname, 'stt', 'handler.py');
+        const pythonExecutable = process.platform === 'win32'
+            ? path.join(__dirname, '..', '.venv', 'Scripts', 'python.exe')
+            : path.join(__dirname, '..', '.venv', 'bin', 'python');
 
-async function transcribeAudio(audioBuffer) {
-    const audio = {
-        content: audioBuffer.toString('base64'),
-    };
-    const config = {
-        encoding: 'LINEAR16',
-        sampleRateHertz: 16000,
-        languageCode: 'en-US',
-    };
-    const request = {
-        audio: audio,
-        config: config,
-    };
+        log.info('STT Service', `Spawning Python process: ${pythonExecutable} ${scriptPath} ${filePath}`);
 
-    try {
-        log.info('Attempting to transcribe audio...');
-        const [response] = await client.recognize(request);
-        const transcription = response.results
-            .map(result => result.alternatives[0].transcript)
-            .join('\n');
-        log.info('Audio transcription successful', transcription);
-        return transcription;
-    } catch (error) {
-        log.alert('Error during STT', error);
-        return null;
-    }
+        const pythonProcess = spawn(pythonExecutable, [scriptPath, filePath]);
+
+        let transcription = '';
+        let errorOutput = '';
+
+        pythonProcess.stdout.on('data', (data) => {
+            transcription += data.toString();
+        });
+
+        pythonProcess.stderr.on('data', (data) => {
+            errorOutput += data.toString();
+        });
+
+        pythonProcess.on('close', (code) => {
+            if (code == 0) {
+                log.info('STT Service', `Transcription successful: ${transcription.trim()}`);
+                resolve(transcription.trim());
+            } else {
+                log.alert('STT Service Error', `Python script exited with code ${code}. Error: ${errorOutput}`);
+                reject(new Error(`Python script error: ${errorOutput}`));
+            }
+        });
+
+        pythonProcess.on('error', (err) => {
+            log.alert('STT Service Error', `Error spawning Python process: ${err.message}`);
+            reject(err);
+        });
+    });
 }
 
 module.exports = { transcribeAudio };
