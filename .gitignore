@@ -4,6 +4,8 @@ node_modules
 
 data/history
 data/logs
+data/temp
+data/models
 
 tests
 

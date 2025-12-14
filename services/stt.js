@@ -1,17 +1,21 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const log = require('../utils/logger.js');
+const { PYTHON_PATH, STT_MODEL_PATH, GET_PYTHON_ENV } = require('../utils/pythonConfig');
 
 function transcribeAudio(filePath) {
     return new Promise((resolve, reject) => {
         const scriptPath = path.join(__dirname, 'stt', 'handler.py');
-        const pythonExecutable = process.platform === 'win32'
-            ? path.join(__dirname, '..', '.venv', 'Scripts', 'python.exe')
-            : path.join(__dirname, '..', '.venv', 'bin', 'python');
+        
+        log.info('STT Service', `Running STT on: ${path.basename(filePath)}`);
 
-        log.info('STT Service', `Spawning Python process: ${pythonExecutable} ${scriptPath} ${filePath}`);
-
-        const pythonProcess = spawn(pythonExecutable, [scriptPath, filePath]);
+        const pythonProcess = spawn(PYTHON_PATH, [
+            scriptPath, 
+            filePath, 
+            '--model_dir', STT_MODEL_PATH
+        ], {
+            env: GET_PYTHON_ENV()
+        });
 
         let transcription = '';
         let errorOutput = '';

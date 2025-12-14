@@ -55,6 +55,19 @@ async function processSegment(segments) {
         }
 
         await typeMessage(seg.message);
+
+        try {
+            if (currentAudio) {
+                currentAudio.pause();
+            }
+
+            const audioData = await window.electronAPI.synthesizeSpeech(seg);
+            if (audioData) {
+                await playAudio(audioData);
+            }
+        } catch (error) {
+            console.error("Failed to play: ", error);
+        }
     }
 
     if (wrappingbubble) {
@@ -70,6 +83,38 @@ async function processSegment(segments) {
     }
 
     wrappingbubble = null;
+}
+
+function playAudio(audioPath) {
+    return new Promise((resolve, reject) => {
+        if (!audioPath) {
+            resolve();
+            return;
+        }
+
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+
+        const audio = new Audio(audioUrl);
+        currentAudio = audio;
+
+        audio.onended = () => {
+            currentAudio = null;
+            resolve();
+        };
+
+        audio.onerror = (e) => {
+            console.error("Audio playback error", e);
+            resolve();
+        };
+
+        audio.play().catch(e => {
+            console.error("Auto-play blocked or failed", e);
+            resolve();
+        });
+    });
 }
 
 async function loadChatHistory() {
@@ -202,22 +247,31 @@ export function initChat() {
         processSegment(message);
     });
 
-    window.electronAPI.on('play-bot-speech', async (_event, text) => {
-        try {
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio.src = '';
-            }
+    // window.electronAPI.on('play-bot-speech', async (segments) => {
+    //     for (const segment of segments) {
+    //         try {
+    //             if (currentAudio) {
+    //                 currentAudio.pause();
+    //                 currentAudio.src = '';
+    //             }
 
-            const audioData = await window.electronAPI.synthesizeSpeech(text);
-            if (audioData) {
-                currentAudio = new Audio(audioData);
-                currentAudio.play().catch(error => console.error("Error playing audio: ", error));
-            }
-        } catch (error) {
-            console.error("Failed to play speech: ", error)
-        }
-    })
+    //             const audioData = await window.electronAPI.synthesizeSpeech(segment);
+    //             if (audioData) {
+    //                 currentAudio = new Audio(audioData);
+    //                 await new Promise(resolve => {
+    //                     currentAudio.onended = resolve;
+    //                     currentAudio.onerror = resolve;
+    //                     currentAudio.play().catch(error => {
+    //                         console.error("Error playing audio: ", error);
+    //                         resolve();
+    //                     });
+    //                 });
+    //             }
+    //         } catch (error) {
+    //             console.error("Failed to play: ", error);
+    //         }
+    //     }
+    // });
 
     loadChatHistory();
 }

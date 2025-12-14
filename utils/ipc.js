@@ -8,6 +8,7 @@ const stt = require('../services/stt');
 const os = require('os');
 const path = require('path');
 const fs = require('fs-extra');
+const { TEMP_PATH } = require('./pythonConfig');
 
 const waitingTime = config.inactive_wait_time_minute * 60 * 1000;
 
@@ -47,32 +48,30 @@ function registerIpcHandlers(mainWindow) {
         }
     });
 
-    ipcMain.handle('synthesize-speech', async (event, text) => {
-        if (!text || text.trim() == '') {
+    ipcMain.handle('synthesize-speech', async (event, segment) => {
+        if (!segment || segment.message.trim() == '' || !segment.message) {
             log.warn('Text is empty or undefined.');
             return;
         }
 
-        const tempOutput = `temp_tts_${Date.now()}.mp3`;
-
         try {
-            const audioPath = await tts.synthesizeSpeech(text, tempOutput);
+            const audioPath = await tts.synthesizeSpeech(segment);
             if (!audioPath) return null;
 
             const audioBuffer = await fs.readFile(audioPath);
-            const base64Audio = audioBuffer.toString('base64');
+            const base64Audio = `data:audio/wav;base64,${audioBuffer.toString('base64')}`;
             
             await fs.remove(audioPath);
             return base64Audio;
         } catch (error) {
             log.alert('Error synthesizing speech:', error);
-            if (fs.pathExistsSync(tempOutput)) await fs.remove(tempOutput);
             return null;
         }
     });
 
     ipcMain.handle('transcribe-audio', async (event, audioBuffer) => {
-        const tempFilePath = path.join(os.tmpdir(), `temp_audio_${Date.now()}.webm`);
+        await fs.ensureDir(TEMP_PATH);
+        const tempFilePath = path.join(TEMP_PATH, `temp_rec_${Date.now()}.webm`);
         try {
             const buffer = Buffer.from(audioBuffer);
             await fs.writeFile(tempFilePath, buffer);
