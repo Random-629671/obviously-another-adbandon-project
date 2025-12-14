@@ -3,6 +3,7 @@ const path = require('path');
 const log = require(path.join(__dirname, 'logger.js'));
 
 const DATA_PATH = path.join(__dirname, '../data');
+const PROMPT_PATH = path.join(DATA_PATH, 'prompt'); 
 const HISTORY_SESSION_PATH = path.join(DATA_PATH, 'history');
 const HISTORY_LITE_PATH = path.join(DATA_PATH, 'prompt/history_lite.json');
 const INTEREST_PATH = path.join(DATA_PATH, 'prompt/interest.json');
@@ -39,8 +40,15 @@ function formatTime() {
 
 async function getConfigFiles() {
     try {
-        const files = await fs.readdir(DATA_PATH);
-        return files.filter(file => file.endsWith('.json') && ['persona.json', 'interest.json'].includes(file));
+        await fs.ensureDir(PROMPT_PATH);
+        const files = await fs.readdir(PROMPT_PATH);
+        
+        const validFiles = files.filter(file => file.endsWith('.json') && ['persona.json', 'interest.json'].includes(file));
+        
+        if (!validFiles.includes('persona.json')) await createDefaultPersona();
+        if (!validFiles.includes('interest.json')) await createDefaultInterest();
+        
+        return ['persona.json', 'interest.json'];
     } catch (error) {
         log.alert('Error reading config directory', error);
         return [];
@@ -49,7 +57,7 @@ async function getConfigFiles() {
 
 async function readConfigFile(filename) {
     try {
-        const filePath = path.join(DATA_PATH, filename);
+        const filePath = path.join(PROMPT_PATH, filename);
         if (!await fs.pathExists(filePath)) return null;
         return await fs.readJson(filePath);
     } catch (error) {
@@ -60,7 +68,7 @@ async function readConfigFile(filename) {
 
 async function writeConfigFile(filename, data) {
     try {
-        const filePath = path.join(DATA_PATH, filename);
+        const filePath = path.join(PROMPT_PATH, filename);
         await fs.outputJson(filePath, data, { spaces: 2 });
         log.info(`Configuration file saved: ${filename}`);
         return { success: true };
