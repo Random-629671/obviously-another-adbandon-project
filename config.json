@@ -1,5 +1,14 @@
 {
     "waiting_time": 90,
     "username": "",
-    "summary_time": 6
+    "summary_time": 6,
+    "inactive_wait_time_minute": 1,
+    "apis": {
+        "gemini": "",
+        "ext": ""
+    },
+    "provider": "gemini",
+    "tts": {
+        "model": "piper"
+    }
 }

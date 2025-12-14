@@ -6,7 +6,7 @@ const startDate = new Date();
 const formattedDate = `${startDate.getFullYear()}-${(startDate.getMonth() + 1).toString().padStart(2, "0")}-${startDate.getDate().toString().padStart(2, "0")}`;
 const formattedTime = `${startDate.getHours().toString().padStart(2, "0")}-${startDate.getMinutes().toString().padStart(2, "0")}-${startDate.getSeconds().toString().padStart(2, "0")}`;
 const logDir = path.join(__dirname, '..', 'data', 'logs');
-fs.mkdirSync(logDir, { recursive: true }); // Đảm bảo thư mục tồn tại
+fs.mkdirSync(logDir, { recursive: true });
 const logFileName = path.join(logDir, `logs_${formattedDate}_${formattedTime}.log`);
 
 let sendLogToUI = null;

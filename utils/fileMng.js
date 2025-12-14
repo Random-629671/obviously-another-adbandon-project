@@ -10,6 +10,7 @@ const PERSONA_PATH = path.join(DATA_PATH, 'prompt/persona.json');
 const CONFIG_PATH = path.join(__dirname, '../config.json');
 
 let currentSessionHistoryPath;
+fs.ensureDirSync(DATA_PATH);
 
 async function readFile(filePath, encoding = 'utf8') {
     try {
@@ -49,6 +50,7 @@ async function getConfigFiles() {
 async function readConfigFile(filename) {
     try {
         const filePath = path.join(DATA_PATH, filename);
+        if (!await fs.pathExists(filePath)) return null;
         return await fs.readJson(filePath);
     } catch (error) {
         log.alert(`Error reading config file: ${filename}`, error);
@@ -59,7 +61,7 @@ async function readConfigFile(filename) {
 async function writeConfigFile(filename, data) {
     try {
         const filePath = path.join(DATA_PATH, filename);
-        await fs.writeJson(filePath, data, { spaces: 2 });
+        await fs.outputJson(filePath, data, { spaces: 2 });
         log.info(`Configuration file saved: ${filename}`);
         return { success: true };
     } catch (error) {
@@ -80,6 +82,7 @@ async function appendMessageToHistory(message) {
         return;
     }
     try {
+        await fs.ensureDir(HISTORY_SESSION_PATH);
         await fs.appendFile(currentSessionHistoryPath, JSON.stringify(message) + '\n');
     } catch (error) {
         log.alert('Error appending message to history for current session:', error);
@@ -88,6 +91,7 @@ async function appendMessageToHistory(message) {
 
 async function readFullHistory(today) {
     try {
+        if (!await fs.pathExists(HISTORY_SESSION_PATH)) return [];
         const historyFiles = (await fs.readdir(HISTORY_SESSION_PATH))
             .filter(file => file.startsWith(`history_${today}_`) && file.endsWith('.jsonl'))
             .map(file => path.join(HISTORY_SESSION_PATH, file));
@@ -131,7 +135,7 @@ async function readFullFullHistory() {
 
 async function writeHistoryLite(data) {
     try {
-        await fs.writeJson(HISTORY_LITE_PATH, data, { spaces: 2 });
+        await fs.outputJson(HISTORY_LITE_PATH, data, { spaces: 2 });
     } catch (error) {
         console.error('Error writing history lite', error);
     }
@@ -161,7 +165,7 @@ async function readHistoryLite() {
 
 async function writeInterestData(data) {
     try {
-        await fs.writeJson(INTEREST_PATH, data, { spaces: 2 });
+        await fs.outputJson(INTEREST_PATH, data, { spaces: 2 });
     } catch (error) {
         log.alert('Error writing interest data', error);
     }
