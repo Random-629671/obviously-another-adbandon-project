@@ -97,7 +97,7 @@ function playAudio(audioPath) {
             currentAudio = null;
         }
 
-        const audio = new Audio(audioUrl);
+        const audio = new Audio(audioPath);
         currentAudio = audio;
 
         audio.onended = () => {

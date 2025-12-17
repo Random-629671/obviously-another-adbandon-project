@@ -14,7 +14,7 @@ const {
 } = require('./utils/pythonConfig');
 
 const IS_WIN = process.platform === 'win32';
-const MARKER_FILE = path.join(VENV_PATH, 'installed_config.txt');
+const CONFIG_CACHE_FILE = path.join(VENV_PATH, 'installed_config.txt');
 
 function log(msg) { console.log(`\x1b[36m[LAUNCHER]\x1b[0m ${msg}`); }
 
@@ -38,11 +38,67 @@ function runCmd(cmd, args, cwd = ROOT_DIR, env = process.env) {
     });
 }
 
+async function verifyNodeModules() {
+    log("Verifying Node modules...");
+    if (!fs.existsSync(path.join(ROOT_DIR, 'node_modules'))) return false;
+    
+    try {
+        require.resolve('electron');
+        require.resolve('fs-extra'); 
+        return true;
+    } catch (e) {
+        log("Node modules missing or broken.");
+        return false;
+    }
+}
+
+async function verifyPythonLibs(pythonEnv) {
+    log("Verifying Python libraries...");
+    const checkScriptPath = path.join(ROOT_DIR, 'verify_libs_temp.py');
+    
+    const checkScript = `
+import sys
+try:
+    print("Checking core libraries...")
+    import torch
+    import torchaudio
+    import numpy
+    import soundfile
+    
+    print("Checking AI libraries...")
+    import faster_whisper
+    import huggingface_hub
+    
+    # Piper python binding (thường là package 'piper-tts', module 'piper')
+    import piper
+    
+    print("All libraries imported successfully.")
+    sys.exit(0)
+except ImportError as e:
+    print(f"MISSING LIBRARY: {e}")
+    sys.exit(1)
+except Exception as e:
+    print(f"ERROR: {e}")
+    sys.exit(1)
+`;
+    fs.writeFileSync(checkScriptPath, checkScript);
+
+    try {
+        await runCmd(PYTHON_PATH, [checkScriptPath], ROOT_DIR, pythonEnv);
+        fs.unlinkSync(checkScriptPath);
+        return true;
+    } catch (error) {
+        log("Verification failed: Missing libraries.");
+        if (fs.existsSync(checkScriptPath)) fs.unlinkSync(checkScriptPath);
+        return false;
+    }
+}
+
 (async () => {
     try {
-        log("=== STARTING SETUP & LAUNCHER ===");
+        log("=== SYSTEM CHECK & LAUNCH ===");
 
-        if (!fs.existsSync(path.join(ROOT_DIR, 'node_modules'))) {
+        if (!(await verifyNodeModules())) {
             log("Installing Node modules...");
             await new Promise((resolve, reject) => {
                 const npm = spawn('npm', ['install'], { stdio: 'inherit', cwd: ROOT_DIR, shell: true });
@@ -51,81 +107,87 @@ function runCmd(cmd, args, cwd = ROOT_DIR, env = process.env) {
         }
 
         if (!fs.existsSync(VENV_PATH)) {
-            log("Creating Python Virtual Environment...");
+            log("Creating Python Venv...");
             await runCmd('python', ['-m', 'venv', '.venv']);
         }
 
         const pythonEnv = GET_PYTHON_ENV();
-        let currentConfig = 'none';
-        let targetConfig = 'cpu';
+
+        let currentMode = 'none';
+        let targetMode = 'cpu';
 
         try {
-            if (IS_WIN) {
-                execSync('nvidia-smi', { stdio: 'ignore' });
-                targetConfig = 'gpu';
-            } else {
-                execSync('lspci | grep -i nvidia', { stdio: 'ignore' });
-                targetConfig = 'gpu';
-            }
-            log(`GPU Detected. Mode: [${targetConfig}]`);
-        } catch (e) {
-            log("No NVIDIA GPU detected. Mode: [cpu]");
+            const checkCmd = IS_WIN ? 'wmic path win32_VideoController get name' : 'lspci | grep -i nvidia';
+            const output = execSync(checkCmd, { stdio: 'pipe' }).toString().toLowerCase();
+            if (output.includes('nvidia')) targetMode = 'gpu';
+        } catch (e) {}
+        
+        log(`Hardware Check -> Target Mode: [${targetMode}]`);
+
+        if (fs.existsSync(CONFIG_CACHE_FILE)) {
+            currentMode = fs.readFileSync(CONFIG_CACHE_FILE, 'utf8').trim();
         }
 
-        if (fs.existsSync(MARKER_FILE)) {
-            currentConfig = fs.readFileSync(MARKER_FILE, 'utf8').trim();
-        }
+        const areLibsIntact = await verifyPythonLibs(pythonEnv);
 
-        if (currentConfig !== targetConfig) {
-            log(`Config mismatch. Updating dependencies...`);
+        if (currentMode !== targetMode || !areLibsIntact) {
+            log(`Starting Dependency Installation (Mode: ${targetMode})...`);
+            
             await runCmd(PYTHON_PATH, ['-m', 'pip', 'install', '--upgrade', 'pip'], ROOT_DIR, pythonEnv);
             
-            const pipArgs = ['-m', 'pip', 'install'];
-            const torchUrl = targetConfig === 'gpu' 
+            const torchUrl = targetMode === 'gpu' 
                 ? "https://download.pytorch.org/whl/cu118" 
                 : "https://download.pytorch.org/whl/cpu";
-
-            log("Installing PyTorch...");
-            await runCmd(PYTHON_PATH, [...pipArgs, "torch", "torchaudio", "--index-url", torchUrl], ROOT_DIR, pythonEnv);
             
-            log("Installing libraries...");
-            await runCmd(PYTHON_PATH, [...pipArgs, "faster-whisper", "piper-tts", "huggingface_hub", "soundfile", "numpy", "six"], ROOT_DIR, pythonEnv);
+            log(`Installing PyTorch (${targetMode})...`);
+            await runCmd(PYTHON_PATH, ['-m', 'pip', 'install', 'torch', 'torchaudio', '--index-url', torchUrl], ROOT_DIR, pythonEnv);
+            
+            log("Installing AI Dependencies...");
+            await runCmd(PYTHON_PATH, ['-m', 'pip', 'install', 'faster-whisper', 'piper-tts', 'huggingface_hub', 'soundfile', 'numpy', 'six'], ROOT_DIR, pythonEnv);
 
-            fs.writeFileSync(MARKER_FILE, targetConfig);
+            fs.writeFileSync(CONFIG_CACHE_FILE, targetMode);
+            log("Installation Complete.");
         } else {
-            log("Dependencies are ready.");
+            log("Python Environment is healthy.");
         }
 
-        const sttOk = fs.existsSync(STT_MODEL_PATH) && fs.readdirSync(STT_MODEL_PATH).length > 0;
-        const ttsOk = fs.existsSync(TTS_PIPER_MODEL); 
+        const isSttReady = fs.existsSync(STT_MODEL_PATH) && fs.readdirSync(STT_MODEL_PATH).length > 2; // Model thường có > 2 file (bin, config...)
+        const isTtsReady = fs.existsSync(TTS_PIPER_MODEL);
 
-        if (!sttOk || !ttsOk) {
-            log("Downloading AI Models...");
-            const scriptPath = path.join(ROOT_DIR, 'download_models.py');
-            const pyContent = `
+        if (!isSttReady || !isTtsReady) {
+            log("Missing AI Models. Downloading via Python Script...");
+            const dlScriptPath = path.join(ROOT_DIR, 'dl_models_temp.py');
+            
+            const dlScript = `
 import os
 from huggingface_hub import snapshot_download, hf_hub_download
 
-stt_path = r"${STT_MODEL_PATH}"
-tts_path = r"${TTS_PIPER_DIR}"
+# Paths (Raw string để tránh lỗi escape trên Windows)
+stt_dir = r"${STT_MODEL_PATH}"
+tts_dir = r"${TTS_PIPER_DIR}"
 
-print(f"STT -> {stt_path}")
-snapshot_download(repo_id="systran/faster-whisper-small", local_dir=stt_path)
+print(f"Downloading STT Model to: {stt_dir}")
+snapshot_download(repo_id="systran/faster-whisper-small", local_dir=stt_dir)
 
-print(f"TTS -> {tts_path}")
-os.makedirs(tts_path, exist_ok=True)
-hf_hub_download(repo_id="rhasspy/piper-voices", filename="en/en_US/amy/medium/en_US-amy-medium.onnx", local_dir=tts_path)
-hf_hub_download(repo_id="rhasspy/piper-voices", filename="en/en_US/amy/medium/en_US-amy-medium.onnx.json", local_dir=tts_path)
+print(f"Downloading TTS Model to: {tts_dir}")
+os.makedirs(tts_dir, exist_ok=True)
+# Tải file onnx
+hf_hub_download(repo_id="rhasspy/piper-voices", filename="en/en_US/amy/medium/en_US-amy-medium.onnx", local_dir=tts_dir)
+# Tải file json config
+hf_hub_download(repo_id="rhasspy/piper-voices", filename="en/en_US/amy/medium/en_US-amy-medium.onnx.json", local_dir=tts_dir)
+
+print("Download sequence finished.")
 `;
-            fs.writeFileSync(scriptPath, pyContent);
-            await runCmd(PYTHON_PATH, [scriptPath], ROOT_DIR, pythonEnv);
-            fs.unlinkSync(scriptPath);
+            fs.writeFileSync(dlScriptPath, dlScript);
+            await runCmd(PYTHON_PATH, [dlScriptPath], ROOT_DIR, pythonEnv);
+            fs.unlinkSync(dlScriptPath);
+        } else {
+            log("AI Models are ready.");
         }
 
-        log(`Launching Electron Binary: ${ELECTRON_PATH}`);
-        
+        log("Launching Application...");
         if (!fs.existsSync(ELECTRON_PATH)) {
-            throw new Error(`Electron binary not found at: ${ELECTRON_PATH}. Please delete node_modules and try again.`);
+            throw new Error(`Electron binary missing at: ${ELECTRON_PATH}. Re-run npm install.`);
         }
 
         const app = spawn(ELECTRON_PATH, ['.'], { 
@@ -136,7 +198,7 @@ hf_hub_download(repo_id="rhasspy/piper-voices", filename="en/en_US/amy/medium/en
         });
 
         app.on('close', (code) => {
-            log(`App closed with code ${code}`);
+            log(`Application closed (Code: ${code})`);
             process.exit(code);
         });
 
